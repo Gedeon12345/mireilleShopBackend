@@ -24,5 +24,5 @@ app.use(errorHandler)
 
 const port = process.env.PORT || 5000
 connectDB()
-  .then(() => app.listen(port, () => console.log(`API prête sur le port ${port}`)))
+  .then(() => app.listen(port, '0.0.0.0', () => console.log(`API prête sur le port ${port}`)))
   .catch((e) => { console.error('Démarrage impossible :', e.message); process.exit(1) })
