@@ -52,9 +52,10 @@ export const adjustmentSchema = z.object({
   product: id,
   size: z.coerce.number().positive('Pointure invalide.'),
   color: str('La couleur'),
-  newQuantity: z.coerce.number({ invalid_type_error: 'Quantité invalide.' }).int('Quantité invalide.').min(0, 'La quantité ne peut pas être négative.'),
+  newQuantity: z.coerce.number({ invalid_type_error: 'Quantité invalide.' }).int('Quantité invalide.').min(0, 'La quantité ne peut pas être négative.').optional(),
+  delta: z.coerce.number({ invalid_type_error: 'Quantité invalide.' }).int('Quantité invalide.').refine((n) => n !== 0, 'La variation ne peut pas être nulle.').optional(),
   reason: str('Le motif').pipe(z.string().min(3, 'Le motif est trop court.')),
-})
+}).refine((d) => (d.newQuantity === undefined) !== (d.delta === undefined), { message: 'Indiquez soit la nouvelle quantité, soit une variation.' })
 
 export const loginSchema = z.object({ email: str('L’email').toLowerCase(), password: str('Le mot de passe') })
 

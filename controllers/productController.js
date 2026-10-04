@@ -51,6 +51,9 @@ export const updateProduct = asyncHandler(async (req, res) => {
   const product = await Product.findById(req.params.id)
   if (!product) throw new AppError('Produit introuvable.', 404)
   if (!product.isActive) throw new AppError('Ce produit est archivé.', 409)
+  const seen = req.body.updatedAt
+  if (seen && new Date(seen).getTime() !== product.updatedAt.getTime())
+    throw new AppError('Ce produit a changé entre-temps (une vente ou un ajustement a eu lieu). Rouvrez la fiche et recommencez.', 409)
   await assertCategory(data.category)
 
   // Toute modification manuelle de quantité est tracée

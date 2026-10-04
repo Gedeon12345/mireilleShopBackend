@@ -33,18 +33,28 @@ export const movements = asyncHandler(async (req, res) => {
   res.json(await StockMovement.find(filter).populate('product', 'name').sort('-createdAt').limit(200))
 })
 
-// Ajustement manuel (inventaire physique, casse, erreur…) : toujours tracé
+// Ajustement manuel (réception, inventaire physique, casse…) : toujours tracé.
+// "delta" (+/-) est appliqué au stock réel du moment ; "newQuantity" fixe une valeur absolue (comptage).
 export const adjustment = asyncHandler(async (req, res) => {
   const d = parse(adjustmentSchema, req.body)
-  await runTx(async (session) => {
+  const relative = d.delta !== undefined
+  const result = await runTx(async (session) => {
     const product = await Product.findOne({ _id: d.product, isActive: true }).session(session)
     if (!product) throw new AppError('Produit introuvable ou archivé.', 404)
     const v = product.sizes.find((s) => sameVariant(s, d.size, d.color))
     if (!v) throw new AppError('Pointure ou couleur introuvable pour ce produit.', 400)
     const prev = v.quantity
-    await Product.updateOne({ _id: product._id }, { $set: { 'sizes.$[v].quantity': d.newQuantity } },
-      { session, arrayFilters: [{ 'v.size': v.size, 'v.color': v.color }] })
-    await StockMovement.create([{ product: product._id, size: v.size, color: v.color, type: 'adjustment', quantity: d.newQuantity - prev, previousQuantity: prev, newQuantity: d.newQuantity, reason: d.reason, createdBy: req.user._id }], { session })
+    const now = relative ? prev + d.delta : d.newQuantity
+    if (now < 0) throw new AppError(`Impossible de retirer ${-d.delta} paire(s) : ${prev} en stock.`, 409)
+
+    const filter = { 'v.size': v.size, 'v.color': v.color }
+    if (relative && d.delta < 0) filter['v.quantity'] = { $gte: -d.delta }
+    const update = relative ? { $inc: { 'sizes.$[v].quantity': d.delta } } : { $set: { 'sizes.$[v].quantity': d.newQuantity } }
+    const r = await Product.updateOne({ _id: product._id }, update, { session, arrayFilters: [filter] })
+    if (relative && r.modifiedCount !== 1) throw new AppError('Le stock a changé entre-temps, réessayez.', 409)
+
+    await StockMovement.create([{ product: product._id, size: v.size, color: v.color, type: 'adjustment', quantity: now - prev, previousQuantity: prev, newQuantity: now, reason: d.reason, createdBy: req.user._id }], { session })
+    return { previousQuantity: prev, newQuantity: now }
   })
-  res.json({ ok: true })
+  res.json({ ok: true, ...result })
 })

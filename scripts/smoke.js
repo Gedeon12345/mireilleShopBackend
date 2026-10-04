@@ -79,6 +79,14 @@ check('Tableau de bord alimenté', dash.status === 200 && typeof dash.data.total
 const hist = await call('GET', '/sales', null, T)
 check('Historique conserve les ventes (dont annulées)', hist.status === 200 && hist.data.some((s) => s.status === 'cancelled'))
 
+// protection du stock contre les écrasements
+const stale = (await call('GET', `/products/${pid}`, null, T)).data
+const adj = await call('POST', '/inventory/adjustment', { product: pid, size: 42, color: 'Noir', delta: 3, reason: 'Test réception' }, T)
+check('Réception relative (+3)', adj.status === 200 && adj.data.newQuantity === adj.data.previousQuantity + 3, JSON.stringify(adj.data))
+const upd = await call('PUT', `/products/${pid}`, { name: stale.name, category: stale.category._id, gender: stale.gender, price: stale.price, sizes: stale.sizes, updatedAt: stale.updatedAt }, T)
+check('Modification sur fiche périmée refusée (409)', upd.status === 409, `statut=${upd.status}`)
+await call('POST', '/inventory/adjustment', { product: pid, size: 42, color: 'Noir', delta: -3, reason: 'Test retour' }, T)
+
 // comptes employés : droits limités
 const empEmail = `test.vendeur.${Date.now()}@example.com`
 const empPass = 'motdepasse-test-1'
