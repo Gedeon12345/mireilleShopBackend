@@ -1,4 +1,4 @@
-# Backend – Stock Boutique (Express + MongoDB)
+# Backend – Mireille Shop (Express + MongoDB)
 
 ## Lancer en local
 ```bash
@@ -23,3 +23,9 @@ Retirez ensuite `ADMIN_PASSWORD` du `.env`. Côté frontend : `VITE_USE_MOCK=fal
 - Chaque variation de stock (initial, vente, annulation, modification, ajustement) crée un `StockMovement`.
 - Une ligne de stock = pointure + couleur, unique par produit (couleur insensible à la casse).
 - Routes privées protégées par JWT ; connexion limitée à 10 échecs / 15 min ; mots de passe hachés (bcrypt).
+
+## Test de bout en bout (sur l'API en ligne)
+```bash
+API_URL=https://<service>.onrender.com/api EMAIL=admin@... PASSWORD=... npm run smoke
+```
+Vérifie les critères du cahier : produit multi-pointures/couleurs, vente, refus au-delà du stock, ventes simultanées, annulation, archivage, routes protégées. Crée un produit « [TEST] » archivé à la fin.
