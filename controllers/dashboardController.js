@@ -6,10 +6,11 @@ import { startOfShopDay, totalStock } from '../services/stockService.js'
 
 export const getDashboard = asyncHandler(async (req, res) => {
   const { lowStockThreshold: th } = await getSettings()
+  const own = req.user.role === 'admin' ? {} : { createdBy: req.user._id }
   const [products, today, latest] = await Promise.all([
     Product.find({ isActive: true }).populate('category', 'name').lean(),
-    Sale.find({ status: 'completed', createdAt: { $gte: startOfShopDay() } }).lean(),
-    Sale.find({ status: 'completed' }).sort('-createdAt').limit(5).lean(),
+    Sale.find({ ...own, status: 'completed', createdAt: { $gte: startOfShopDay() } }).lean(),
+    Sale.find({ ...own, status: 'completed' }).sort('-createdAt').limit(5).lean(),
   ])
   const refs = products.flatMap((p) => p.sizes.map((s) => s.quantity))
   const by = {}

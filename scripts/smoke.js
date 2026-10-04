@@ -79,6 +79,33 @@ check('Tableau de bord alimenté', dash.status === 200 && typeof dash.data.total
 const hist = await call('GET', '/sales', null, T)
 check('Historique conserve les ventes (dont annulées)', hist.status === 200 && hist.data.some((s) => s.status === 'cancelled'))
 
+// comptes employés : droits limités
+const empEmail = `test.vendeur.${Date.now()}@example.com`
+const empPass = 'motdepasse-test-1'
+const emp = await call('POST', '/users', { name: '[TEST] Vendeur', email: empEmail, password: empPass }, T)
+check('Compte employé créé', emp.status === 201 && emp.data.role === 'employee' && !emp.data.password, JSON.stringify(emp.data))
+const eLogin = await call('POST', '/auth/login', { email: empEmail, password: empPass })
+const E = eLogin.data?.token
+check('Connexion employé', eLogin.status === 200 && !!E)
+if (E) {
+  check('Employé : création de produit refusée', (await call('POST', '/products', body, E)).status === 403)
+  check('Employé : ajustement de stock refusé', (await call('POST', '/inventory/adjustment', { product: pid, size: 42, color: 'Noir', newQuantity: 9, reason: 'test' }, E)).status === 403)
+  check('Employé : gestion des comptes refusée', (await call('GET', '/users', null, E)).status === 403)
+  const es = await call('POST', '/sales', { items: [{ product: pid, size: 42, color: 'Noir', quantity: 1 }] }, E)
+  check('Employé : vente autorisée', es.status === 201, JSON.stringify(es.data))
+  if (es.status === 201) {
+    check('Employé : annulation refusée', (await call('POST', `/sales/${es.data._id}/cancel`, null, E)).status === 403)
+    const eh = await call('GET', '/sales', null, E)
+    check('Employé : ne voit que ses ventes', eh.status === 200 && eh.data.length > 0 && eh.data.every((x) => x.createdBy === eLogin.data.user.name))
+    await call('POST', `/sales/${es.data._id}/cancel`, null, T)
+  }
+}
+if (emp.data?._id) {
+  await call('PATCH', `/users/${emp.data._id}`, { isActive: false }, T)
+  check('Compte désactivé : accès immédiatement refusé', E ? (await call('GET', '/products', null, E)).status === 401 : false)
+  check('Compte désactivé : nouvelle connexion refusée', (await call('POST', '/auth/login', { email: empEmail, password: empPass })).status === 403)
+}
+
 // 9. produit archivé non vendable
 check('Archivage du produit', (await call('PATCH', `/products/${pid}/archive`, null, T)).status === 200)
 const arch = await call('POST', '/sales', { items: [{ product: pid, size: 42, color: 'Noir', quantity: 1 }] }, T)

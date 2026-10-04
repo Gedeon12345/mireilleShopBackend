@@ -5,8 +5,9 @@ const userSchema = new mongoose.Schema({
   name: { type: String, required: true, trim: true },
   email: { type: String, required: true, unique: true, lowercase: true, trim: true },
   password: { type: String, required: true, select: false },
-  role: { type: String, enum: ['admin'], default: 'admin' },
-}, { timestamps: true })
+  role: { type: String, enum: ['admin', 'employee'], default: 'admin' },
+  isActive: { type: Boolean, default: true },
+}, { timestamps: true, toJSON: { transform: (_, r) => { delete r.password; delete r.__v; return r } } })
 
 userSchema.pre('save', async function (next) {
   if (this.isModified('password')) this.password = await bcrypt.hash(this.password, 12)

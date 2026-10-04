@@ -3,12 +3,13 @@ import User from '../models/User.js'
 import { AppError, asyncHandler } from '../utils/AppError.js'
 import { parse, loginSchema, profileSchema } from '../utils/validate.js'
 
-const publicUser = (u) => ({ name: u.name, email: u.email })
+const publicUser = (u) => ({ name: u.name, email: u.email, role: u.role })
 
 export const login = asyncHandler(async (req, res) => {
   const { email, password } = parse(loginSchema, req.body)
   const user = await User.findOne({ email }).select('+password')
   if (!user || !(await user.matchPassword(password))) throw new AppError('Email ou mot de passe incorrect.', 401)
+  if (user.isActive === false) throw new AppError('Ce compte est désactivé. Contactez la propriétaire.', 403)
   const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, { expiresIn: process.env.JWT_EXPIRES_IN || '7d' })
   res.json({ token, user: publicUser(user) })
 })

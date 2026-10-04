@@ -6,12 +6,14 @@ import { parse, saleSchema } from '../utils/validate.js'
 import { runTx } from '../utils/transaction.js'
 import { nextSaleReference, sameVariant } from '../services/stockService.js'
 
+const own = (req) => (req.user.role === 'admin' ? {} : { createdBy: req.user._id })
+
 export const listSales = asyncHandler(async (req, res) => {
-  res.json(await Sale.find().sort('-createdAt').limit(500))
+  res.json(await Sale.find(own(req)).sort('-createdAt').limit(500))
 })
 
 export const getSale = asyncHandler(async (req, res) => {
-  const s = await Sale.findById(req.params.id)
+  const s = await Sale.findOne({ _id: req.params.id, ...own(req) })
   if (!s) throw new AppError('Vente introuvable.', 404)
   res.json(s)
 })

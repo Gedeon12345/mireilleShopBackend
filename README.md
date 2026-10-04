@@ -29,3 +29,8 @@ Retirez ensuite `ADMIN_PASSWORD` du `.env`. Côté frontend : `VITE_USE_MOCK=fal
 API_URL=https://<service>.onrender.com/api EMAIL=admin@... PASSWORD=... npm run smoke
 ```
 Vérifie les critères du cahier : produit multi-pointures/couleurs, vente, refus au-delà du stock, ventes simultanées, annulation, archivage, routes protégées. Crée un produit « [TEST] » archivé à la fin.
+
+## Rôles
+- **admin** (propriétaire) : tous les droits, gère les comptes employés (`/api/users`).
+- **employee** (vendeur) : consulte le stock, enregistre des ventes, voit uniquement ses propres ventes. Ne peut ni créer/modifier/archiver des produits ou catégories, ni ajuster le stock, ni annuler une vente, ni modifier le seuil.
+Les droits sont appliqués côté serveur (`middleware/auth.js` + fichiers `routes/`). Un compte désactivé perd l'accès immédiatement.

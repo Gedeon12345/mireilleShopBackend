@@ -68,3 +68,13 @@ export const profileSchema = z.object({
 export const settingsSchema = z.object({
   lowStockThreshold: z.coerce.number({ invalid_type_error: 'Seuil invalide.' }).int('Le seuil doit être un entier.').min(1, 'Le seuil doit être d’au moins 1.').max(1000),
 })
+
+const email = z.string({ required_error: 'L’email est obligatoire.' }).trim().toLowerCase().email('Email invalide.')
+const password = z.string({ required_error: 'Le mot de passe est obligatoire.' }).min(8, 'Le mot de passe doit contenir au moins 8 caractères.')
+
+export const userCreateSchema = z.object({ name: str('Le nom'), email, password })
+export const userUpdateSchema = z.object({
+  name: z.string().trim().min(1, 'Le nom est obligatoire.').optional(),
+  isActive: z.boolean({ invalid_type_error: 'Statut invalide.' }).optional(),
+})
+export const passwordResetSchema = z.object({ newPassword: password })
