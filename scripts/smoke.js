@@ -119,5 +119,17 @@ check('Archivage du produit', (await call('PATCH', `/products/${pid}/archive`, n
 const arch = await call('POST', '/sales', { items: [{ product: pid, size: 42, color: 'Noir', quantity: 1 }] }, T)
 check('Produit archivé non vendable', arch.status === 404, `statut=${arch.status}`)
 
+// 10. archives : restauration et suppression définitive
+const archived = await call('GET', '/products?archived=true', null, T)
+check('Liste des produits archivés', archived.status === 200 && archived.data.some((x) => x._id === pid))
+check('Restauration d’un produit archivé', (await call('PATCH', `/products/${pid}/restore`, null, T)).status === 200)
+check('Suppression refusée si le produit est actif', (await call('DELETE', `/products/${pid}`, null, T)).status === 409)
+await call('PATCH', `/products/${pid}/archive`, null, T)
+check('Suppression définitive refusée s’il y a un historique de ventes', (await call('DELETE', `/products/${pid}`, null, T)).status === 409)
+const tmp = await call('POST', '/products', { ...body, name: '[TEST] Sans vente' }, T)
+await call('PATCH', `/products/${tmp.data._id}/archive`, null, T)
+check('Suppression définitive d’un produit jamais vendu', (await call('DELETE', `/products/${tmp.data._id}`, null, T)).status === 200)
+check('Produit supprimé introuvable', (await call('GET', `/products/${tmp.data._id}`, null, T)).status === 404)
+
 console.log(`\n${pass} réussis, ${fail} échec(s).`)
 process.exit(fail ? 1 : 0)

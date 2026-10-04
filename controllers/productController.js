@@ -1,6 +1,8 @@
 import Category from '../models/Category.js'
 import Product from '../models/Product.js'
 import StockMovement from '../models/StockMovement.js'
+import Sale from '../models/Sale.js'
+import { runTx } from '../utils/transaction.js'
 import { AppError, asyncHandler } from '../utils/AppError.js'
 import { parse, productSchema } from '../utils/validate.js'
 import { uploadImage, deleteImage } from '../services/imageService.js'
@@ -20,7 +22,9 @@ const assertCategory = async (id) => {
 const withCategory = (p) => p.populate('category', 'name')
 
 export const listProducts = asyncHandler(async (req, res) => {
-  const filter = req.query.all === 'true' ? {} : { isActive: true }
+  const wantsArchived = req.query.archived === 'true'
+  if ((wantsArchived || req.query.all === 'true') && req.user.role !== 'admin') throw new AppError('Action réservée à la propriétaire.', 403)
+  const filter = wantsArchived ? { isActive: false } : req.query.all === 'true' ? {} : { isActive: true }
   res.json(await Product.find(filter).populate('category', 'name').sort('-createdAt'))
 })
 
@@ -90,5 +94,28 @@ export const updateProduct = asyncHandler(async (req, res) => {
 export const archiveProduct = asyncHandler(async (req, res) => {
   const p = await Product.findByIdAndUpdate(req.params.id, { isActive: false }, { new: true })
   if (!p) throw new AppError('Produit introuvable.', 404)
+  res.json({ ok: true })
+})
+
+// Restauration d'un produit archivé
+export const restoreProduct = asyncHandler(async (req, res) => {
+  const p = await Product.findByIdAndUpdate(req.params.id, { isActive: true }, { new: true })
+  if (!p) throw new AppError('Produit introuvable.', 404)
+  res.json({ ok: true })
+})
+
+// Suppression définitive : propriétaire seulement, produit déjà archivé et jamais vendu
+// (un produit qui a des ventes reste archivé pour préserver l'historique)
+export const deleteProduct = asyncHandler(async (req, res) => {
+  const product = await Product.findById(req.params.id)
+  if (!product) throw new AppError('Produit introuvable.', 404)
+  if (product.isActive) throw new AppError('Archivez d’abord ce produit avant de le supprimer définitivement.', 409)
+  if (await Sale.exists({ 'items.product': product._id }))
+    throw new AppError('Ce produit a un historique de ventes : il ne peut pas être supprimé définitivement. Il reste archivé.', 409)
+  await runTx(async (session) => {
+    await StockMovement.deleteMany({ product: product._id }, { session })
+    await Product.deleteOne({ _id: product._id }, { session })
+  })
+  await deleteImage(product.imagePublicId)
   res.json({ ok: true })
 })
