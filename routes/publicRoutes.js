@@ -4,8 +4,8 @@ import { publicProducts, publicProduct, publicCategories, publicShop } from '../
 
 const r = Router()
 r.use(rateLimit({ windowMs: 60 * 1000, max: 120, standardHeaders: true, legacyHeaders: false, message: { message: 'Trop de requêtes, réessayez dans une minute.' } }))
-r.get('/products', publicProducts)
-r.get('/products/:id', publicProduct)
-r.get('/categories', publicCategories)
-r.get('/shop', publicShop)
+r.get('/products', publicProducts) // get all products
+r.get('/products/:id', publicProduct) // get product by id
+r.get('/categories', publicCategories) // get all categories
+r.get('/shop', publicShop) // get all shops
 export default r
