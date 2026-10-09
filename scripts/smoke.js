@@ -114,6 +114,15 @@ if (emp.data?._id) {
   check('Compte désactivé : nouvelle connexion refusée', (await call('POST', '/auth/login', { email: empEmail, password: empPass })).status === 403)
 }
 
+// site client : catalogue public
+const pub = await call('GET', '/public/products')
+check('Catalogue public accessible sans connexion', pub.status === 200 && pub.data.some((x) => x._id === pid))
+check('Le catalogue public ne révèle aucune quantité', !JSON.stringify(pub.data).includes('quantity'))
+const cur = (await call('GET', `/products/${pid}`, null, T)).data
+await call('PUT', `/products/${pid}`, { name: cur.name, category: cur.category._id, gender: cur.gender, price: cur.price, sizes: cur.sizes, showOnline: false, updatedAt: cur.updatedAt }, T)
+const pub2 = await call('GET', '/public/products')
+check('Produit masqué absent du catalogue public', pub2.status === 200 && !pub2.data.some((x) => x._id === pid))
+
 // 9. produit archivé non vendable
 check('Archivage du produit', (await call('PATCH', `/products/${pid}/archive`, null, T)).status === 200)
 const arch = await call('POST', '/sales', { items: [{ product: pid, size: 42, color: 'Noir', quantity: 1 }] }, T)
@@ -125,7 +134,11 @@ check('Liste des produits archivés', archived.status === 200 && archived.data.s
 check('Restauration d’un produit archivé', (await call('PATCH', `/products/${pid}/restore`, null, T)).status === 200)
 check('Suppression refusée si le produit est actif', (await call('DELETE', `/products/${pid}`, null, T)).status === 409)
 await call('PATCH', `/products/${pid}/archive`, null, T)
-check('Suppression définitive refusée s’il y a un historique de ventes', (await call('DELETE', `/products/${pid}`, null, T)).status === 409)
+const delSold = await call('DELETE', `/products/${pid}`, null, T)
+check('Suppression définitive d’un produit déjà vendu', delSold.status === 200, JSON.stringify(delSold.data))
+const histAfter = await call('GET', '/sales', null, T)
+check('Historique des ventes intact après suppression', histAfter.status === 200 && histAfter.data.some((x) => x.items.some((i) => i.productName === '[TEST] Chaussure')))
+check('Produit vendu supprimé introuvable', (await call('GET', `/products/${pid}`, null, T)).status === 404)
 const tmp = await call('POST', '/products', { ...body, name: '[TEST] Sans vente' }, T)
 await call('PATCH', `/products/${tmp.data._id}/archive`, null, T)
 check('Suppression définitive d’un produit jamais vendu', (await call('DELETE', `/products/${tmp.data._id}`, null, T)).status === 200)

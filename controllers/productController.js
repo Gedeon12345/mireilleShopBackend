@@ -1,7 +1,6 @@
 import Category from '../models/Category.js'
 import Product from '../models/Product.js'
 import StockMovement from '../models/StockMovement.js'
-import Sale from '../models/Sale.js'
 import { runTx } from '../utils/transaction.js'
 import { AppError, asyncHandler } from '../utils/AppError.js'
 import { parse, productSchema } from '../utils/validate.js'
@@ -104,16 +103,15 @@ export const restoreProduct = asyncHandler(async (req, res) => {
   res.json({ ok: true })
 })
 
-// Suppression définitive : propriétaire seulement, produit déjà archivé et jamais vendu
-// (un produit qui a des ventes reste archivé pour préserver l'historique)
+// Suppression définitive : propriétaire seulement, produit déjà archivé.
+// Les ventes passées ne sont jamais modifiées : chacune garde sa propre copie du nom, de la pointure,
+// de la couleur et du prix. Les mouvements de stock liés à une vente sont conservés (traçabilité).
 export const deleteProduct = asyncHandler(async (req, res) => {
   const product = await Product.findById(req.params.id)
   if (!product) throw new AppError('Produit introuvable.', 404)
   if (product.isActive) throw new AppError('Archivez d’abord ce produit avant de le supprimer définitivement.', 409)
-  if (await Sale.exists({ 'items.product': product._id }))
-    throw new AppError('Ce produit a un historique de ventes : il ne peut pas être supprimé définitivement. Il reste archivé.', 409)
   await runTx(async (session) => {
-    await StockMovement.deleteMany({ product: product._id }, { session })
+    await StockMovement.deleteMany({ product: product._id, relatedSale: { $exists: false } }, { session })
     await Product.deleteOne({ _id: product._id }, { session })
   })
   await deleteImage(product.imagePublicId)

@@ -24,6 +24,7 @@ export const productSchema = z.object({
   gender: z.enum(['Homme', 'Femme', 'Enfant', 'Mixte'], { errorMap: () => ({ message: 'Genre invalide.' }) }),
   price: z.coerce.number({ invalid_type_error: 'Prix invalide.' }).int('Le prix doit être un nombre entier.').positive('Le prix doit être supérieur à 0.'),
   description: z.string().trim().max(1000, 'Description trop longue.').optional().default(''),
+  showOnline: z.union([z.boolean(), z.enum(['true', 'false'])]).optional().transform((v) => v === undefined ? true : v === true || v === 'true'),
   sizes: z.array(variant, { required_error: 'Ajoutez au moins une pointure.' }).min(1, 'Ajoutez au moins une pointure.'),
 }).superRefine((d, ctx) => {
   const seen = new Set()
@@ -67,8 +68,14 @@ export const profileSchema = z.object({
 })
 
 export const settingsSchema = z.object({
-  lowStockThreshold: z.coerce.number({ invalid_type_error: 'Seuil invalide.' }).int('Le seuil doit être un entier.').min(1, 'Le seuil doit être d’au moins 1.').max(1000),
-})
+  lowStockThreshold: z.coerce.number({ invalid_type_error: 'Seuil invalide.' }).int('Le seuil doit être un entier.').min(1, 'Le seuil doit être d’au moins 1.').max(1000).optional(),
+  shopName: z.string().trim().min(1, 'Le nom de la boutique est obligatoire.').max(60).optional(),
+  whatsappNumber: z.string().trim()
+    .transform((v) => v.replace(/[\s.\-()]/g, '').replace(/^\+/, '').replace(/^00/, ''))
+    .refine((v) => v === '' || /^\d{8,15}$/.test(v), 'Numéro WhatsApp invalide : indicatif du pays inclus, par exemple 237690000000.').optional(),
+  shopAddress: z.string().trim().max(200, 'Adresse trop longue.').optional(),
+  deliveryInfo: z.string().trim().max(600, 'Texte trop long (600 caractères maximum).').optional(),
+}).refine((d) => Object.keys(d).length > 0, { message: 'Aucune modification à enregistrer.' })
 
 const email = z.string({ required_error: 'L’email est obligatoire.' }).trim().toLowerCase().email('Email invalide.')
 const password = z.string({ required_error: 'Le mot de passe est obligatoire.' }).min(8, 'Le mot de passe doit contenir au moins 8 caractères.')

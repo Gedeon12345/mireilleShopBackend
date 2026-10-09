@@ -17,6 +17,7 @@ const productSchema = new mongoose.Schema({
   price: { type: Number, required: true, min: 1 },
   sizes: { type: [variantSchema], validate: { validator: (v) => v.length > 0, message: 'Un produit doit avoir au moins une pointure.' } },
   isActive: { type: Boolean, default: true, index: true },
+  showOnline: { type: Boolean, default: true },   // visible sur le site client
 }, { timestamps: true, toJSON: { transform: (_, r) => { delete r.__v; delete r.imagePublicId; return r } } })
 
 export default mongoose.model('Product', productSchema)

@@ -8,9 +8,11 @@ import categoryRoutes from './categoryRoutes.js'
 import saleRoutes from './saleRoutes.js'
 import inventoryRoutes from './inventoryRoutes.js'
 import userRoutes from './userRoutes.js'
+import publicRoutes from './publicRoutes.js'
 
 const r = Router()
 r.get('/health', (req, res) => res.json({ ok: true }))
+r.use('/public', publicRoutes)                // site client : lecture seule, sans connexion
 r.use('/auth', authRoutes)                       // login public ; me/profile protégés dans le routeur
 // Toutes les routes ci-dessous exigent un JWT valide
 r.use(protect)
